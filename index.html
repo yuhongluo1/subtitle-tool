@@ -553,35 +553,41 @@
 
 <!-- PROP MANAGER MODAL -->
 <div class="mo" id="propMo">
-  <div class="md" style="max-width:800px;">
+  <div class="md" style="max-width:850px;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
       <h3 style="margin:0;">📦 道具表</h3>
       <span style="color:#666;font-size:12px;">记录每个道具在哪场出现、谁负责</span>
       <div style="flex:1;"></div>
+      <div style="display:flex;gap:4px;">
+        <button class="btn-sm" id="propViewList" onclick="setPropView('list')" style="background:#2563eb;color:#fff;">📋 列表</button>
+        <button class="btn-sm" id="propViewCues" onclick="setPropView('cues')" style="background:#333;color:#ccc;">📍 道具Cue</button>
+      </div>
       <button class="btn-s btn-sm" onclick="addProp()">＋ 添加道具</button>
       <button class="btn-g btn-sm" onclick="closeMo('propMo')">✕ 关闭</button>
     </div>
-    <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-      <span style="color:#555;font-size:11px;">筛选场景：</span>
-      <select id="propSceneFilter" style="max-width:200px;font-size:11px;padding:4px 8px;" onchange="renderProps()">
-        <option value="">全部场景</option>
-      </select>
-      <span style="color:#555;font-size:11px;">状态：</span>
-      <select id="propStatusFilter" style="max-width:120px;font-size:11px;padding:4px 8px;" onchange="renderProps()">
-        <option value="">全部</option>
-        <option value="ready">✅ 就绪</option>
-        <option value="needs_acquire">❌ 需借用</option>
-        <option value="needs_repair">🔧 需修理</option>
-        <option value="missing">⚠️ 丢失</option>
-      </select>
+    <div id="propViewContent">
+      <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <span style="color:#555;font-size:11px;">筛选场景：</span>
+        <select id="propSceneFilter" style="max-width:200px;font-size:11px;padding:4px 8px;" onchange="renderProps()">
+          <option value="">全部场景</option>
+        </select>
+        <span style="color:#555;font-size:11px;">状态：</span>
+        <select id="propStatusFilter" style="max-width:120px;font-size:11px;padding:4px 8px;" onchange="renderProps()">
+          <option value="">全部</option>
+          <option value="ready">✅ 就绪</option>
+          <option value="needs_acquire">❌ 需借用</option>
+          <option value="needs_repair">🔧 需修理</option>
+          <option value="missing">⚠️ 丢失</option>
+        </select>
+      </div>
+      <div id="propList" style="max-height:55vh;overflow-y:auto;"></div>
     </div>
-    <div id="propList" style="max-height:60vh;overflow-y:auto;"></div>
   </div>
 </div>
 
 <!-- PROP EDITOR MODAL (sub-modal) -->
 <div class="mo" id="propEditorMo">
-  <div class="md" style="max-width:550px;">
+  <div class="md" style="max-width:650px;">
     <h3 id="propEditorTitle">编辑道具</h3>
     <div class="fr">
       <div class="fg"><label>道具名 *</label><input id="propName" placeholder="红色手提包"></div>
@@ -607,9 +613,16 @@
         <option value="missing">⚠️ 丢失</option>
       </select>
     </div>
-    <div class="fg"><label>出现场景（按顺序列出场景名，逗号分隔）</label>
-      <input id="propScenes" placeholder="如：Act I - Welcome to the Rock, Act II - Finale"></div>
-    <div class="fg"><label>场景备注</label><input id="propSceneNote" placeholder="如：放在桌上 / 拿在手上上场"></div>
+    <div style="border-top:1px solid #1a1a1a;padding-top:12px;margin-top:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="color:#888;font-size:12px;">📍 出场/下场时机 — 每场独立设置</span>
+        <button class="btn-s btn-sm" onclick="addPropSceneCue()">＋ 添加场景</button>
+      </div>
+      <div id="propSceneCueList"></div>
+      <p style="color:#555;font-size:11px;margin-top:6px;">
+        上场时机/下场时机格式自由，如："第3句" "BONNIE唱完" "转场时" "开幕"
+      </p>
+    </div>
     <div class="fa">
       <button class="btn-g" onclick="closeMo('propEditorMo')">取消</button>
       <button class="btn-p" onclick="saveProp()">💾 保存</button>
@@ -2757,10 +2770,17 @@ function delLightCue(idx) {
 //  MODULE: PROP MANAGER
 // ====================================================================
 let editingPropIdx = -1;
+let propView = 'list';
+let propSceneCues = []; // temp array for editing scene cues
 
 function showPropManager() {
   const s = gs(); if (!s) return;
   if (!s.props) s.props = [];
+  propView = 'list';
+  document.getElementById('propViewList').style.background = '#2563eb';
+  document.getElementById('propViewList').style.color = '#fff';
+  document.getElementById('propViewCues').style.background = '#333';
+  document.getElementById('propViewCues').style.color = '#ccc';
   // Populate scene filter
   const sel = document.getElementById('propSceneFilter');
   const val = sel.value;
@@ -2771,7 +2791,18 @@ function showPropManager() {
   }));
   sel.value = val || '';
   document.getElementById('propMo').classList.add('a');
+  document.getElementById('propViewContent').style.display = '';
   renderProps();
+}
+
+function setPropView(view) {
+  propView = view;
+  document.getElementById('propViewList').style.background = view === 'list' ? '#2563eb' : '#333';
+  document.getElementById('propViewList').style.color = view === 'list' ? '#fff' : '#ccc';
+  document.getElementById('propViewCues').style.background = view === 'cues' ? '#2563eb' : '#333';
+  document.getElementById('propViewCues').style.color = view === 'cues' ? '#fff' : '#ccc';
+  if (view === 'list') renderProps();
+  else renderPropCues();
 }
 
 function renderProps() {
@@ -2780,7 +2811,7 @@ function renderProps() {
   const statusFilter = document.getElementById('propStatusFilter').value;
   let filtered = props;
   if (sceneFilter) {
-    filtered = filtered.filter(p => (p.scenes||[]).includes(sceneFilter));
+    filtered = filtered.filter(p => (p.sceneCues||[]).some(c => c.sceneKey === sceneFilter) || (p.scenes||[]).includes(sceneFilter));
   }
   if (statusFilter) {
     filtered = filtered.filter(p => p.status === statusFilter);
@@ -2801,19 +2832,31 @@ function renderProps() {
       p.status === 'needs_acquire' ? '<span class="tag tag-status-need">需借用</span>' :
       p.status === 'needs_repair' ? '<span class="tag tag-status-repair">需修理</span>' :
       '<span class="tag tag-status-missing">丢失</span>';
-    // Show scene labels
-    const sceneLabels = (p.scenes||[]).map(sk => {
-      try {
-        const [ai, si] = sk.split('-').map(Number);
-        if (s.acts[ai] && s.acts[ai].scenes[si]) return s.acts[ai].name + '→' + s.acts[ai].scenes[si].name;
-      } catch(e) {}
-      return sk;
+    // Build scene labels with cue info
+    const cueMap = {};
+    (p.sceneCues||[]).forEach(c => { cueMap[c.sceneKey] = c; });
+    const sceneLabels = (p.scenes||p.sceneCues||[]).map(sk => {
+      if (typeof sk === 'string') {
+        const cue = cueMap[sk];
+        try {
+          const [ai, si] = sk.split('-').map(Number);
+          if (s.acts[ai] && s.acts[ai].scenes[si]) {
+            let label = s.acts[ai].name + '→' + s.acts[ai].scenes[si].name;
+            if (cue && (cue.onTime || cue.offTime)) {
+              label += (cue.onTime ? ' ↑' + cue.onTime : '') + (cue.offTime ? ' ↓' + cue.offTime : '');
+            }
+            return label;
+          }
+        } catch(e) {}
+        return sk;
+      }
+      return '';
     }).join(', ');
     html += `<tr>
       <td><strong style="color:#fff;">${esc(p.name||'')}</strong></td>
       <td>${catTag}</td>
       <td style="color:#888;font-size:11px;">${esc(p.location||'')}</td>
-      <td style="color:#666;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(sceneLabels)}">${esc(sceneLabels)}</td>
+      <td style="color:#666;font-size:11px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(sceneLabels)}">${esc(sceneLabels)}</td>
       <td style="color:#fdba74;">${esc(p.handler||'')}</td>
       <td>${statusTag}</td>
       <td><button class="tm-btn-sm" onclick="editProp(${origIdx})">✏️</button> <button class="tm-btn-sm" onclick="delProp(${origIdx})">🗑</button></td>
@@ -2823,8 +2866,46 @@ function renderProps() {
   list.innerHTML = html;
 }
 
+function renderPropCues() {
+  const s = gs(); const props = s.props || [];
+  // Collect all cues and sort by performance order
+  const allCues = [];
+  props.forEach(p => {
+    (p.sceneCues||[]).forEach(c => {
+      const [ai, si] = c.sceneKey.split('-').map(Number);
+      const sceneLabel = (s.acts[ai] && s.acts[ai].scenes[si]) ? s.acts[ai].name + ' → ' + s.acts[ai].scenes[si].name : c.sceneKey;
+      if (c.onTime) allCues.push({ sort: ai * 100 + si, prop: p.name, action: '上场', sceneLabel, time: c.onTime, note: c.onNote||'' });
+      if (c.offTime) allCues.push({ sort: ai * 100 + si, prop: p.name, action: '下场', sceneLabel, time: c.offTime, note: c.offNote||'' });
+    });
+  });
+  allCues.sort((a, b) => a.sort - b.sort);
+
+  const list = document.getElementById('propList');
+  if (!allCues.length) {
+    list.innerHTML = '<div class="tm-empty">还没有道具Cue — 在道具编辑器中为每个场景设置上场/下场时机</div>';
+    return;
+  }
+
+  let html = '<div style="margin-bottom:8px;color:#555;font-size:11px;">按演出顺序排列的所有道具上下场提示</div>';
+  html += '<table class="tm-tbl"><tr><th>顺序</th><th>道具</th><th>动作</th><th>场景</th><th>时机</th><th>备注</th></tr>';
+  allCues.forEach((cue, i) => {
+    const actionTag = cue.action === '上场' ? '<span class="tag tag-status-ready">↑ 上场</span>' : '<span class="tag tag-status-repair">↓ 下场</span>';
+    html += `<tr>
+      <td style="color:#555;">#${i+1}</td>
+      <td><strong style="color:#fff;">${esc(cue.prop)}</strong></td>
+      <td>${actionTag}</td>
+      <td style="color:#888;font-size:11px;">${esc(cue.sceneLabel)}</td>
+      <td style="color:#6af;">${esc(cue.time)}</td>
+      <td style="color:#555;font-size:11px;">${esc(cue.note)}</td>
+    </tr>`;
+  });
+  html += '</table>';
+  list.innerHTML = html;
+}
+
 function addProp() {
   editingPropIdx = -1;
+  propSceneCues = [];
   document.getElementById('propEditorTitle').textContent = '➕ 添加道具';
   document.getElementById('propName').value = '';
   document.getElementById('propCategory').value = 'hand_prop';
@@ -2832,9 +2913,8 @@ function addProp() {
   document.getElementById('propLoc').value = '';
   document.getElementById('propHandler').value = '';
   document.getElementById('propStatus').value = 'ready';
-  document.getElementById('propScenes').value = '';
-  document.getElementById('propSceneNote').value = '';
   closeMo('propMo');
+  renderPropSceneCues();
   document.getElementById('propEditorMo').classList.add('a');
 }
 
@@ -2842,6 +2922,7 @@ function editProp(idx) {
   const s = gs(); const p = s.props[idx];
   if (!p) return;
   editingPropIdx = idx;
+  propSceneCues = (p.sceneCues||[]).map(c => ({ ...c })); // shallow clone
   document.getElementById('propEditorTitle').textContent = '✏️ 编辑道具';
   document.getElementById('propName').value = p.name || '';
   document.getElementById('propCategory').value = p.category || 'hand_prop';
@@ -2849,10 +2930,60 @@ function editProp(idx) {
   document.getElementById('propLoc').value = p.location || '';
   document.getElementById('propHandler').value = p.handler || '';
   document.getElementById('propStatus').value = p.status || 'ready';
-  document.getElementById('propScenes').value = (p.scenes||[]).join(', ');
-  document.getElementById('propSceneNote').value = p.sceneNote || '';
   closeMo('propMo');
+  renderPropSceneCues();
   document.getElementById('propEditorMo').classList.add('a');
+}
+
+function addPropSceneCue() {
+  const s = gs(); if (!s) return;
+  // Build scene options
+  const opts = [];
+  s.acts.forEach((act, ai) => act.scenes.forEach((sc, si) => {
+    opts.push({ key: `${ai}-${si}`, label: `${act.name} → ${sc.name}` });
+  }));
+  if (!opts.length) { t('还没有场景数据'); return; }
+  // Show a simple picker
+  const names = opts.map((o, i) => `${i+1}. ${o.label}`).join('\n');
+  const pick = prompt(`选择场景 (输入编号 1-${opts.length}):\n${names}`);
+  if (!pick) return;
+  const idx = parseInt(pick) - 1;
+  if (idx < 0 || idx >= opts.length) { t('无效选择'); return; }
+  const key = opts[idx].key;
+  // Check if already added
+  if (propSceneCues.some(c => c.sceneKey === key)) { t('该场景已添加'); return; }
+  propSceneCues.push({ sceneKey: key, onTime: '', offTime: '', onNote: '', offNote: '' });
+  renderPropSceneCues();
+}
+
+function removePropSceneCue(idx) {
+  propSceneCues.splice(idx, 1);
+  renderPropSceneCues();
+}
+
+function renderPropSceneCues() {
+  const s = gs(); if (!s) return;
+  const container = document.getElementById('propSceneCueList');
+  if (!propSceneCues.length) {
+    container.innerHTML = '<div style="color:#444;font-size:12px;padding:8px 0;">还没有添加场景，点「＋ 添加场景」设置出场/下场时机</div>';
+    return;
+  }
+  let html = '';
+  propSceneCues.forEach((cue, i) => {
+    let sceneLabel = cue.sceneKey;
+    try {
+      const [ai, si] = cue.sceneKey.split('-').map(Number);
+      if (s.acts[ai] && s.acts[ai].scenes[si]) sceneLabel = s.acts[ai].name + ' → ' + s.acts[ai].scenes[si].name;
+    } catch(e) {}
+    html += `<div style="display:flex;gap:6px;align-items:center;padding:8px 10px;background:#131313;border:1px solid #1a1a1a;border-radius:8px;margin-bottom:4px;">
+      <span style="color:#aaa;font-size:11px;min-width:100px;">${esc(sceneLabel)}</span>
+      <input id="pcuOn_${i}" value="${esc(cue.onTime)}" placeholder="上场时机" style="max-width:100px;font-size:11px;padding:4px 8px;" onchange="propSceneCues[${i}].onTime=this.value">
+      <input id="pcuOff_${i}" value="${esc(cue.offTime)}" placeholder="下场时机" style="max-width:100px;font-size:11px;padding:4px 8px;" onchange="propSceneCues[${i}].offTime=this.value">
+      <input id="pcuNote_${i}" value="${esc(cue.onNote||cue.offNote||'')}" placeholder="备注" style="max-width:120px;font-size:11px;padding:4px 8px;" onchange="propSceneCues[${i}].onNote=this.value;propSceneCues[${i}].offNote=this.value">
+      <button class="tm-btn-sm" onclick="removePropSceneCue(${i})">✕</button>
+    </div>`;
+  });
+  container.innerHTML = html;
 }
 
 function saveProp() {
@@ -2864,20 +2995,9 @@ function saveProp() {
   const location = document.getElementById('propLoc').value.trim();
   const handler = document.getElementById('propHandler').value.trim();
   const status = document.getElementById('propStatus').value;
-  const scenesRaw = document.getElementById('propScenes').value.trim();
-  const sceneNote = document.getElementById('propSceneNote').value.trim();
-  // Resolve scene keys from scene names
-  const sceneKeys = [];
-  if (scenesRaw) {
-    const names = scenesRaw.split(',').map(n => n.trim().toLowerCase());
-    s.acts.forEach((act, ai) => act.scenes.forEach((sc, si) => {
-      const full = (act.name + ' → ' + sc.name).toLowerCase();
-      if (names.some(n => full.includes(n) || sc.name.toLowerCase().includes(n))) {
-        sceneKeys.push(`${ai}-${si}`);
-      }
-    }));
-  }
-  const propData = { name, category, desc, location, handler, status, scenes: sceneKeys, sceneNote };
+  // Collect scene keys from sceneCues
+  const sceneKeys = propSceneCues.map(c => c.sceneKey);
+  const propData = { name, category, desc, location, handler, status, sceneCues: propSceneCues, scenes: sceneKeys };
   if (!s.props) s.props = [];
   if (editingPropIdx >= 0) {
     s.props[editingPropIdx] = propData;
@@ -2887,14 +3007,17 @@ function saveProp() {
   save();
   closeMo('propEditorMo');
   document.getElementById('propMo').classList.add('a');
-  renderProps();
+  if (propView === 'list') renderProps();
+  else renderPropCues();
   t('已保存道具');
 }
 
 function delProp(idx) {
   if (!confirm('删除此道具？')) return;
   gs().props.splice(idx, 1);
-  save(); renderProps();
+  save(); 
+  if (propView === 'list') renderProps();
+  else renderPropCues();
 }
 </script>
 </body>
