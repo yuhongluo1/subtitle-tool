@@ -433,6 +433,7 @@
     <button class="btn-g" onclick="showActorManager()">👥 演员</button>
     <button class="btn-g" onclick="showLineImport()">📄 追加</button>
     <button class="btn-g btn-sm" onclick="exportShow()">📤 导出</button>
+    <button class="btn-w btn-sm" onclick="exportCueScript()">📋 总cue表</button>
     <button class="btn-g" onclick="showMicManager()">🎤 麦克风</button>
     <button class="btn-g" onclick="showLightingCues()">💡 灯光</button>
     <button class="btn-g" onclick="showPropManager()">📦 道具</button>
@@ -3019,6 +3020,59 @@ function exportProps() {
     <p>${new Date().toLocaleDateString()} · 共 ${props.length} 件道具</p>
     <table>${rows}</table>
     <button onclick="window.print()" style="margin-top:12px;padding:6px 16px;">🖨 打印</button>
+  </body></html>`;
+  const w = window.open('', '_blank', 'width=800,height=600');
+  w.document.write(html);
+  w.document.close();
+}
+
+function exportCueScript() {
+  const s = gs(); if (!s) return;
+  // Build scene-key lookup for mics, lights, props
+  const micByScene = {}; (s.mics?.assignments||[]).forEach(a => { if(!micByScene[a.sceneKey]) micByScene[a.sceneKey]=[]; micByScene[a.sceneKey].push(a); });
+  const lightByScene = {}; (s.lightingCues||[]).forEach(c => { if(!lightByScene[c.sceneKey]) lightByScene[c.sceneKey]=[]; lightByScene[c.sceneKey].push(c); });
+  const propByScene = {}; (s.props||[]).forEach(p => (p.sceneCues||[]).forEach(c => { if(!propByScene[c.sceneKey]) propByScene[c.sceneKey]=[]; propByScene[c.sceneKey].push({prop:p,cue:c}); }));
+  
+  let body = '';
+  s.acts.forEach((act, ai) => {
+    body += `<h2 style="font-size:16px;color:#333;border-bottom:2px solid #333;padding-bottom:4px;margin:20px 0 10px;">${esc(act.name)}</h2>`;
+    act.scenes.forEach((sc, si) => {
+      const sk = `${ai}-${si}`;
+      // Scene header
+      body += `<h3 style="font-size:14px;color:#555;margin:14px 0 6px;">${sc.type==='song'?'🎵':''} ${esc(sc.name)}</h3>`;
+      // Cue header block
+      const mics = micByScene[sk]||[], lights = lightByScene[sk]||[], props = propByScene[sk]||[];
+      if (mics.length || lights.length || props.length) {
+        body += `<div style="background:#f0f4ff;border:1px solid #d0d8f0;border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:11px;color:#555;">`;
+        if (mics.length) body += `<div><strong>🎤 Mic:</strong> ${mics.map(a => `${a.micId}→${a.actor}${a.character?'('+a.character+')':''}`).join(' / ')}</div>`;
+        if (lights.length) body += `<div><strong>💡 灯:</strong> ${lights.map(c => `${c.number} ${c.desc} (${c.timingLabel})${c.operator?' — '+c.operator:''}`).join(' / ')}</div>`;
+        if (props.length) body += `<div><strong>📦 道具:</strong> ${props.map(({prop,cue}) => `${prop.name}${cue.onTime?' ↑'+cue.onTime:''}${cue.offTime?' ↓'+cue.offTime:''}`).join(' / ')}</div>`;
+        body += `</div>`;
+      }
+      // Lines
+      (sc.lines||[]).forEach(l => {
+        if (l.type === 'sd') {
+          body += `<div style="font-style:italic;color:#888;padding:4px 10px;font-size:12px;">📋 ${esc(l.text||l.en||'')}</div>`;
+        } else {
+          body += `<div style="padding:4px 10px;border-left:3px solid #e0e0e0;margin:2px 0;">`;
+          if (l.char) body += `<div style="font-weight:600;font-size:12px;color:#d97706;">${esc(l.char)}</div>`;
+          body += `<div style="font-size:14px;">${esc(l.en||'')}</div>`;
+          body += `<div style="font-size:13px;color:#2563eb;">${l.cn ? esc(l.cn) : '<span style="color:#dc2626;">⚠️ 缺翻译</span>'}</div>`;
+          body += `</div>`;
+        }
+      });
+    });
+  });
+  
+  const html = `<html><head><meta charset="utf-8"><title>Cue剧本 - ${s.title}</title><style>
+    body{font-family:sans-serif;padding:24px;color:#222;max-width:800px;margin:0 auto}
+    h1{font-size:20px;margin-bottom:2px} .sub{color:#888;font-size:12px;margin-bottom:20px}
+    @media print{body{padding:12px}button{display:none}}
+  </style></head><body>
+    <h1>📋 ${esc(s.title)} ${s.titleCn?'· '+esc(s.titleCn):''}</h1>
+    <p class="sub">Cue剧本 — ${new Date().toLocaleDateString()} · ${s.acts.reduce((a,act)=>a+act.scenes.length,0)}场 · ${s.acts.reduce((a,act)=>a+act.scenes.reduce((b,sc)=>b+(sc.lines||[]).length,0),0)}行</p>
+    ${body}
+    <button onclick="window.print()" style="margin-top:20px;padding:8px 20px;font-size:14px;cursor:pointer;">🖨 打印 / 存PDF</button>
   </body></html>`;
   const w = window.open('', '_blank', 'width=800,height=600');
   w.document.write(html);
