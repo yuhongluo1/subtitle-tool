@@ -240,6 +240,37 @@
   .tp .bar-in{height:100%;background:#2563eb;border-radius:2px;transition:width .3s}
   .tp .st{color:#999;font-size:13px}
   .tp .st span{color:#fff;font-weight:600}
+
+  /* TABLE MODULE */
+  .tm-tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .tm-tbl th{text-align:left;padding:8px 10px;color:#888;font-weight:500;border-bottom:1px solid #222;font-size:11px;white-space:nowrap}
+  .tm-tbl td{padding:8px 10px;border-bottom:1px solid #141414;vertical-align:middle}
+  .tm-tbl tr:hover td{background:#111}
+  .tm-tbl .tag{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:500;white-space:nowrap;display:inline-block}
+  .tag-mic{background:#0c1929;color:#6af}
+  .tag-light{background:#1a0e3a;color:#a78bfa}
+  .tag-sound{background:#1e3a1e;color:#6ee7b7}
+  .tag-effect{background:#3a1a1a;color:#fca5a5}
+  .tag-prop-hand{background:#1e3a5f;color:#93c5fd}
+  .tag-prop-furn{background:#2d1b69;color:#c4b5fd}
+  .tag-prop-cost{background:#3a2e1a;color:#fcd34d}
+  .tag-status-ready{background:#064e3b;color:#6ee7b7}
+  .tag-status-missing{background:#450a0a;color:#fca5a5}
+  .tag-status-repair{background:#451a03;color:#fbbf24}
+  .tag-status-need{background:#1a1a3a;color:#93c5fd}
+  .tm-empty{text-align:center;padding:40px;color:#555;font-size:13px}
+  .tm-btn-sm{padding:3px 8px;font-size:10px;border-radius:4px;background:#222;color:#888;border:none;cursor:pointer}
+  .tm-btn-sm:hover{background:#333;color:#fff}
+  .tm-hint{color:#555;font-size:11px;margin-bottom:8px}
+  .tm-grid{display:grid;gap:10px}
+  .tm-card{background:#131313;border:1px solid #1a1a1a;border-radius:10px;padding:12px 14px}
+  .tm-card h4{font-size:14px;color:#fff;margin-bottom:4px}
+  .tm-card .s{color:#666;font-size:11px}
+  .tm-flow{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px}
+  .tm-flow .arr{color:#333}
+  .tm-flow .from{color:#fdba74}
+  .tm-flow .to{color:#6af}
+  .tm-flow .warn{color:#fbbf24;font-size:10px}
 </style>
 </head>
 <body>
@@ -373,6 +404,9 @@
     <button class="btn-g" onclick="showActorManager()">👥 演员</button>
     <button class="btn-g" onclick="showLineImport()">📄 追加</button>
     <button class="btn-g btn-sm" onclick="exportShow()">📤 导出</button>
+    <button class="btn-g" onclick="showMicManager()">🎤 麦克风</button>
+    <button class="btn-g" onclick="showLightingCues()">💡 灯光</button>
+    <button class="btn-g" onclick="showPropManager()">📦 道具</button>
     <button class="btn-d btn-sm" onclick="delShow()">🗑 删除</button>
   </div>
   <div id="actsContainer"></div>
@@ -434,6 +468,151 @@
       <button class="btn-s btn-sm" onclick="addActor()">＋ 添加演员</button>
     </div>
     <div id="actorList" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+
+<!-- MIC MANAGER MODAL -->
+<div class="mo" id="micMo">
+  <div class="md" style="max-width:750px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <h3 style="margin:0;">🎤 麦克风管理</h3>
+      <span style="color:#666;font-size:12px;">记录每支mic的分配和流转</span>
+      <div style="flex:1;"></div>
+      <div style="display:flex;gap:4px;">
+        <button class="btn-sm" id="micViewInventory" onclick="setMicView('inventory')" style="background:#2563eb;color:#fff;">📋 设备</button>
+        <button class="btn-sm" id="micViewAssign" onclick="setMicView('assign')" style="background:#333;color:#ccc;">🎭 按场景</button>
+        <button class="btn-sm" id="micViewFlow" onclick="setMicView('flow')" style="background:#333;color:#ccc;">🔄 流转</button>
+      </div>
+      <button class="btn-g btn-sm" onclick="closeMo('micMo')">✕ 关闭</button>
+    </div>
+    <div id="micContentView"></div>
+  </div>
+</div>
+
+<!-- LIGHTING CUES MODAL -->
+<div class="mo" id="lightMo">
+  <div class="md" style="max-width:800px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <h3 style="margin:0;">💡 灯光Cue表</h3>
+      <span style="color:#666;font-size:12px;">按演出顺序排列的灯光提示</span>
+      <div style="flex:1;"></div>
+      <button class="btn-s btn-sm" onclick="addLightCue()">＋ 添加Cue</button>
+      <button class="btn-g btn-sm" onclick="closeMo('lightMo')">✕ 关闭</button>
+    </div>
+    <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">
+      <span style="color:#555;font-size:11px;">筛选场景：</span>
+      <select id="lightSceneFilter" style="max-width:200px;font-size:11px;padding:4px 8px;" onchange="renderLightCues()">
+        <option value="">全部</option>
+      </select>
+    </div>
+    <div id="lightList" style="max-height:65vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- CUE EDITOR MODAL (sub-modal for lighting) -->
+<div class="mo" id="cueEditorMo">
+  <div class="md" style="max-width:550px;">
+    <h3 id="cueEditorTitle">编辑Cue</h3>
+    <div class="fr">
+      <div class="fg"><label>Cue编号</label><input id="cueNum" placeholder="L1"></div>
+      <div class="fg"><label>类型</label>
+        <select id="cueType" style="font-size:12px;padding:6px 10px;">
+          <option value="lighting">💡 灯光</option>
+          <option value="sound">🔊 音效</option>
+          <option value="effect">✨ 特效</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label>描述</label><input id="cueDesc" placeholder="如：全亮暖光、追光BONNIE"></div>
+    <div class="fr">
+      <div class="fg"><label>触发位置 <span style="color:#888;font-weight:400;">场景</span></label>
+        <select id="cueScene" style="font-size:12px;padding:6px 10px;"></select>
+      </div>
+      <div class="fg"><label>触发时机</label>
+        <select id="cueTiming" style="font-size:12px;padding:6px 10px;">
+          <option value="scene_start">场景开始</option>
+          <option value="song_start">歌曲开始</option>
+          <option value="on_line">指定台词</option>
+          <option value="after_line">台词之后</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>操作员</label><input id="cueOperator" placeholder="小张"></div>
+      <div class="fg"><label>淡入/淡出</label><input id="cueFade" placeholder="3秒 / instant" value="instant"></div>
+    </div>
+    <div class="fg"><label>备注</label><input id="cueNote" placeholder="额外说明"></div>
+    <div class="fa">
+      <button class="btn-g" onclick="closeMo('cueEditorMo')">取消</button>
+      <button class="btn-p" onclick="saveLightCue()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROP MANAGER MODAL -->
+<div class="mo" id="propMo">
+  <div class="md" style="max-width:800px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <h3 style="margin:0;">📦 道具表</h3>
+      <span style="color:#666;font-size:12px;">记录每个道具在哪场出现、谁负责</span>
+      <div style="flex:1;"></div>
+      <button class="btn-s btn-sm" onclick="addProp()">＋ 添加道具</button>
+      <button class="btn-g btn-sm" onclick="closeMo('propMo')">✕ 关闭</button>
+    </div>
+    <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+      <span style="color:#555;font-size:11px;">筛选场景：</span>
+      <select id="propSceneFilter" style="max-width:200px;font-size:11px;padding:4px 8px;" onchange="renderProps()">
+        <option value="">全部场景</option>
+      </select>
+      <span style="color:#555;font-size:11px;">状态：</span>
+      <select id="propStatusFilter" style="max-width:120px;font-size:11px;padding:4px 8px;" onchange="renderProps()">
+        <option value="">全部</option>
+        <option value="ready">✅ 就绪</option>
+        <option value="needs_acquire">❌ 需借用</option>
+        <option value="needs_repair">🔧 需修理</option>
+        <option value="missing">⚠️ 丢失</option>
+      </select>
+    </div>
+    <div id="propList" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- PROP EDITOR MODAL (sub-modal) -->
+<div class="mo" id="propEditorMo">
+  <div class="md" style="max-width:550px;">
+    <h3 id="propEditorTitle">编辑道具</h3>
+    <div class="fr">
+      <div class="fg"><label>道具名 *</label><input id="propName" placeholder="红色手提包"></div>
+      <div class="fg"><label>类别</label>
+        <select id="propCategory" style="font-size:12px;padding:6px 10px;">
+          <option value="hand_prop">🎒 手持</option>
+          <option value="furniture">🪑 家具</option>
+          <option value="costume_addon">👔 服饰配件</option>
+          <option value="other">📦 其他</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label>描述</label><input id="propDesc" placeholder="旧款红色手提包，带金色扣"></div>
+    <div class="fr">
+      <div class="fg"><label>存放位置</label><input id="propLoc" placeholder="台右侧幕後 / 后台道具桌"></div>
+      <div class="fg"><label>负责人</label><input id="propHandler" placeholder="小王"></div>
+    </div>
+    <div class="fg"><label>状态</label>
+      <select id="propStatus" style="font-size:12px;padding:6px 10px;">
+        <option value="ready">✅ 已就绪</option>
+        <option value="needs_acquire">❌ 需要借用/购买</option>
+        <option value="needs_repair">🔧 需要修理</option>
+        <option value="missing">⚠️ 丢失</option>
+      </select>
+    </div>
+    <div class="fg"><label>出现场景（按顺序列出场景名，逗号分隔）</label>
+      <input id="propScenes" placeholder="如：Act I - Welcome to the Rock, Act II - Finale"></div>
+    <div class="fg"><label>场景备注</label><input id="propSceneNote" placeholder="如：放在桌上 / 拿在手上上场"></div>
+    <div class="fa">
+      <button class="btn-g" onclick="closeMo('propEditorMo')">取消</button>
+      <button class="btn-p" onclick="saveProp()">💾 保存</button>
+    </div>
   </div>
 </div>
 
@@ -581,6 +760,20 @@ function load(){
     });
   });
   if (migrated) save();
+  // Migrate new modules
+  let ver = data._ver || 0;
+  if (!data.shows) data.shows = [];
+  data.shows.forEach(s => {
+    if (!s.mics) s.mics = { inventory: [], assignments: [] };
+    if (!s.lightingCues) s.lightingCues = [];
+    if (!s.props) s.props = [];
+    if (!s.micQuickChanges) s.micQuickChanges = [];
+    // Migrate old cue format
+    if (s.lightingCues && !s.lightingCues.length) {
+      // Check if there's old cue data
+    }
+  });
+  data._ver = 1;
 }
 function save(){localStorage.setItem('st3',JSON.stringify(data))}
 function t(m){const o=document.getElementById('toast');o.textContent=m;o.classList.add('show');clearTimeout(o._t);o._t=setTimeout(()=>o.classList.remove('show'),2000)}
@@ -2217,6 +2410,474 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 load(); renderHome();
+
+// ====================================================================
+//  MODULE: MICROPHONE MANAGER
+// ====================================================================
+let editingMicIdx = -1;
+let micView = 'inventory';
+
+function showMicManager() {
+  const s = gs(); if (!s) return;
+  if (!s.mics) s.mics = { inventory: [], assignments: [], quickChanges: [] };
+  micView = 'inventory';
+  document.getElementById('micViewInventory').style.background = '#2563eb';
+  document.getElementById('micViewInventory').style.color = '#fff';
+  document.getElementById('micViewAssign').style.background = '#333';
+  document.getElementById('micViewAssign').style.color = '#ccc';
+  document.getElementById('micViewFlow').style.background = '#333';
+  document.getElementById('micViewFlow').style.color = '#ccc';
+  document.getElementById('micMo').classList.add('a');
+  renderMicView();
+}
+
+function setMicView(view) {
+  micView = view;
+  const isInv = view === 'inventory', isAs = view === 'assign', isFl = view === 'flow';
+  document.getElementById('micViewInventory').style.background = isInv ? '#2563eb' : '#333';
+  document.getElementById('micViewInventory').style.color = isInv ? '#fff' : '#ccc';
+  document.getElementById('micViewAssign').style.background = isAs ? '#2563eb' : '#333';
+  document.getElementById('micViewAssign').style.color = isAs ? '#fff' : '#ccc';
+  document.getElementById('micViewFlow').style.background = isFl ? '#2563eb' : '#333';
+  document.getElementById('micViewFlow').style.color = isFl ? '#fff' : '#ccc';
+  renderMicView();
+}
+
+function renderMicView() {
+  const s = gs(); if (!s) return;
+  if (micView === 'inventory') renderMicInventory();
+  else if (micView === 'assign') renderMicAssign();
+  else if (micView === 'flow') renderMicFlow();
+}
+
+function renderMicInventory() {
+  const s = gs();
+  const inv = s.mics.inventory || [];
+  let html = '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
+  html += '<span style="color:#555;font-size:11px;">设备清单</span>';
+  html += '<button class="btn-s btn-sm" onclick="addMic()">＋ 添加设备</button>';
+  html += `<span style="color:#666;font-size:11px;flex:1;text-align:right;">共 ${inv.length} 支</span>`;
+  html += '</div>';
+  if (!inv.length) {
+    html += '<div class="tm-empty">还没有添加麦克风设备</div>';
+    document.getElementById('micContentView').innerHTML = html;
+    return;
+  }
+  html += '<table class="tm-tbl"><tr><th>编号</th><th>类型</th><th>品牌</th><th>Channel</th><th>状态</th><th>备注</th><th></th></tr>';
+  inv.forEach((m, i) => {
+    const statusTag = m.status === 'broken' ? '<span class="tag tag-status-missing">故障</span>' : '<span class="tag tag-status-ready">正常</span>';
+    const typeTag = m.type === 'headset' ? '<span class="tag tag-mic">头戴</span>' : m.type === 'handheld' ? '<span class="tag tag-light">手持</span>' : '<span class="tag tag-sound">领夹</span>';
+    html += `<tr>
+      <td><strong style="color:#fff;">${esc(m.id)}</strong></td>
+      <td>${typeTag}</td>
+      <td style="color:#aaa;">${esc(m.brand||'')}</td>
+      <td style="color:#6af;">CH ${esc(m.channel||'')}</td>
+      <td>${statusTag}</td>
+      <td style="color:#666;font-size:11px;">${esc(m.notes||'')}</td>
+      <td><button class="tm-btn-sm" onclick="editMic(${i})">✏️</button> <button class="tm-btn-sm" onclick="delMic(${i})">🗑</button></td>
+    </tr>`;
+  });
+  html += '</table>';
+  document.getElementById('micContentView').innerHTML = html;
+}
+
+function addMic() {
+  const s = gs();
+  const id = prompt('设备编号（如 M1, M2…）：');
+  if (!id) return;
+  const type = prompt('类型：headset(头戴) / handheld(手持) / lavalier(领夹)', 'headset');
+  if (!type) return;
+  const brand = prompt('品牌（可选）：') || '';
+  const channel = prompt('Channel（可选）：') || '';
+  if (!s.mics) s.mics = { inventory: [], assignments: [], quickChanges: [] };
+  s.mics.inventory.push({ id, type, brand, channel, status: 'ok', notes: '' });
+  save(); renderMicView(); t('已添加 ' + id);
+}
+
+function editMic(i) {
+  const s = gs(); const m = s.mics.inventory[i];
+  if (!m) return;
+  const id = prompt('设备编号：', m.id); if (!id) return;
+  const type = prompt('类型：headset/handheld/lavalier', m.type);
+  const brand = prompt('品牌：', m.brand||'');
+  const channel = prompt('Channel：', m.channel||'');
+  const status = prompt('状态：ok/broken', m.status||'ok');
+  const notes = prompt('备注：', m.notes||'');
+  m.id = id; m.type = type; m.brand = brand; m.channel = channel; m.status = status; m.notes = notes;
+  save(); renderMicView(); t('已更新');
+}
+
+function delMic(i) {
+  if (!confirm('删除此设备？')) return;
+  gs().mics.inventory.splice(i,1);
+  save(); renderMicView();
+}
+
+function renderMicAssign() {
+  const s = gs();
+  const inv = s.mics.inventory || [];
+  const assign = s.mics.assignments || [];
+  // Build scene list
+  const scenes = [];
+  s.acts.forEach((act, ai) => act.scenes.forEach((sc, si) => {
+    scenes.push({ key: `${ai}-${si}`, label: `${act.name} → ${sc.name}` });
+  }));
+  let html = '<div class="tm-hint">分配每支mic到各场景的使用者</div>';
+  if (!scenes.length) { html += '<div class="tm-empty">还没有场景数据</div>'; document.getElementById('micContentView').innerHTML = html; return; }
+  scenes.forEach(sc => {
+    const scAssign = assign.filter(a => a.sceneKey === sc.key);
+    html += `<div style="background:#131313;border:1px solid #1a1a1a;border-radius:8px;padding:10px 14px;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:12px;color:#aaa;">${esc(sc.label)}</span>
+        <button class="tm-btn-sm" onclick="addMicAssign('${sc.key}')">＋ 分配</button>
+      </div>`;
+    if (scAssign.length) {
+      scAssign.forEach(a => {
+        const mic = inv.find(m => m.id === a.micId);
+        html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;">
+          <span style="color:#6af;">${esc(a.micId)}</span>
+          <span style="color:#888;">→</span>
+          <span style="color:#fdba74;">${esc(a.actor||'')}</span>
+          ${a.character ? `<span style="color:#888;">(${esc(a.character)})</span>` : ''}
+          ${a.note ? `<span style="color:#555;font-size:10px;">— ${esc(a.note)}</span>` : ''}
+          <button class="tm-btn-sm" onclick="delMicAssign('${sc.key}','${a.micId}')">✕</button>
+        </div>`;
+      });
+    } else {
+      html += '<div style="color:#444;font-size:11px;padding:2px 0;">未分配</div>';
+    }
+    html += '</div>';
+  });
+  document.getElementById('micContentView').innerHTML = html;
+}
+
+function addMicAssign(sceneKey) {
+  const s = gs(); const inv = s.mics.inventory || [];
+  if (!inv.length) { t('请先添加设备'); return; }
+  const micList = inv.map(m => m.id).join(', ');
+  const micId = prompt(`可用设备：${micList}\n设备编号：`);
+  if (!micId || !s.mics.inventory.find(m => m.id === micId)) { t('无效编号'); return; }
+  const actor = prompt('演员名：'); if (!actor) return;
+  const character = prompt('角色名（可选）：') || '';
+  const note = prompt('备注（可选）：') || '';
+  if (!s.mics.assignments) s.mics.assignments = [];
+  // Remove existing assignment for this mic in this scene
+  s.mics.assignments = s.mics.assignments.filter(a => !(a.sceneKey === sceneKey && a.micId === micId));
+  s.mics.assignments.push({ sceneKey, micId, actor, character, note });
+  save(); renderMicAssign(); t('已分配');
+}
+
+function delMicAssign(sceneKey, micId) {
+  gs().mics.assignments = gs().mics.assignments.filter(a => !(a.sceneKey === sceneKey && a.micId === micId));
+  save(); renderMicAssign();
+}
+
+function renderMicFlow() {
+  const s = gs(); const inv = s.mics.inventory || [];
+  const assign = s.mics.assignments || [];
+  if (!inv.length) { document.getElementById('micContentView').innerHTML = '<div class="tm-empty">暂无设备</div>'; return; }
+  // Build scene list in order
+  const scenes = [];
+  s.acts.forEach((act, ai) => act.scenes.forEach((sc, si) => {
+    scenes.push({ key: `${ai}-${si}`, label: `${act.name} → ${sc.name}` });
+  }));
+  let html = '<div class="tm-hint">每支mic在整场演出中的流转情况</div>';
+  inv.forEach(mic => {
+    html += `<div class="tm-card" style="margin-bottom:6px;">
+      <h4>${esc(mic.id)} <span style="color:#888;font-size:11px;font-weight:400;">${mic.type}</span></h4>`;
+    const usedIn = assign.filter(a => a.micId === mic.id);
+    if (usedIn.length) {
+      usedIn.forEach(a => {
+        const sc = scenes.find(s2 => s2.key === a.sceneKey);
+        html += `<div class="tm-flow">
+          <span class="from">${esc(a.actor)}</span>
+          <span class="arr">→</span>
+          <span class="to">${sc ? esc(sc.label) : esc(a.sceneKey)}</span>
+          ${a.note ? `<span class="warn">⚠ ${esc(a.note)}</span>` : ''}
+        </div>`;
+      });
+    } else {
+      html += '<div style="color:#444;font-size:11px;padding:4px 0;">未使用</div>';
+    }
+    html += '</div>';
+  });
+  document.getElementById('micContentView').innerHTML = html;
+}
+
+// ====================================================================
+//  MODULE: LIGHTING CUES
+// ====================================================================
+let editingCueIdx = -1;
+
+function showLightingCues() {
+  const s = gs(); if (!s) return;
+  if (!s.lightingCues) s.lightingCues = [];
+  // Populate scene filter
+  const sel = document.getElementById('lightSceneFilter');
+  const val = sel.value;
+  sel.innerHTML = '<option value="">全部</option>';
+  s.acts.forEach((act, ai) => act.scenes.forEach((sc, si) => {
+    const key = `${ai}-${si}`;
+    sel.innerHTML += `<option value="${key}">${esc(act.name)} → ${esc(sc.name)}</option>`;
+  }));
+  sel.value = val || '';
+  // Populate cue editor scene selector
+  const sceneSel = document.getElementById('cueScene');
+  sceneSel.innerHTML = '';
+  s.acts.forEach((act, ai) => act.scenes.forEach((sc, si) => {
+    const key = `${ai}-${si}`;
+    sceneSel.innerHTML += `<option value="${key}">${esc(act.name)} → ${esc(sc.name)}</option>`;
+  }));
+  document.getElementById('lightMo').classList.add('a');
+  renderLightCues();
+}
+
+function renderLightCues() {
+  const s = gs(); const cues = s.lightingCues || [];
+  const filter = document.getElementById('lightSceneFilter').value;
+  const filtered = filter ? cues.filter(c => c.sceneKey === filter) : cues;
+  const list = document.getElementById('lightList');
+  if (!filtered.length) {
+    list.innerHTML = '<div class="tm-empty">还没有灯光Cue，点「＋ 添加Cue」开始</div>';
+    return;
+  }
+  const sorted = [...filtered].sort((a, b) => (a.seq||0) - (b.seq||0));
+  let html = '<table class="tm-tbl"><tr><th>#</th><th>描述</th><th>场景</th><th>触发</th><th>操作员</th><th>淡入/淡出</th><th></th></tr>';
+  sorted.forEach((c, i) => {
+    const typeTag = c.type === 'lighting' ? '<span class="tag tag-light">💡灯</span>' :
+      c.type === 'sound' ? '<span class="tag tag-sound">🔊音</span>' :
+      '<span class="tag tag-effect">✨效</span>';
+    html += `<tr>
+      <td><strong style="color:#a78bfa;">${esc(c.number||'')}</strong></td>
+      <td style="color:#ddd;">${esc(c.desc||'')}</td>
+      <td style="color:#666;font-size:11px;">${esc(c.sceneLabel||'')}</td>
+      <td style="color:#888;font-size:11px;">${esc(c.timingLabel||'')}</td>
+      <td style="color:#aaa;">${esc(c.operator||'')}</td>
+      <td style="color:#555;font-size:11px;">${esc(c.fade||'instant')}</td>
+      <td><button class="tm-btn-sm" onclick="editLightCue(${i})">✏️</button> <button class="tm-btn-sm" onclick="delLightCue(${i})">🗑</button></td>
+    </tr>`;
+  });
+  html += '</table>';
+  list.innerHTML = html;
+}
+
+function addLightCue() {
+  editingCueIdx = -1;
+  const s = gs();
+  document.getElementById('cueEditorTitle').textContent = '➕ 添加Cue';
+  document.getElementById('cueNum').value = `L${(s.lightingCues||[]).length + 1}`;
+  document.getElementById('cueType').value = 'lighting';
+  document.getElementById('cueDesc').value = '';
+  document.getElementById('cueTiming').value = 'scene_start';
+  document.getElementById('cueOperator').value = '';
+  document.getElementById('cueFade').value = 'instant';
+  document.getElementById('cueNote').value = '';
+  closeMo('lightMo');
+  document.getElementById('cueEditorMo').classList.add('a');
+}
+
+function editLightCue(idx) {
+  const s = gs(); const c = s.lightingCues[idx];
+  if (!c) return;
+  editingCueIdx = idx;
+  document.getElementById('cueEditorTitle').textContent = '✏️ 编辑Cue';
+  document.getElementById('cueNum').value = c.number || '';
+  document.getElementById('cueType').value = c.type || 'lighting';
+  document.getElementById('cueDesc').value = c.desc || '';
+  document.getElementById('cueScene').value = c.sceneKey || '';
+  document.getElementById('cueTiming').value = c.timing || 'scene_start';
+  document.getElementById('cueOperator').value = c.operator || '';
+  document.getElementById('cueFade').value = c.fade || 'instant';
+  document.getElementById('cueNote').value = c.note || '';
+  closeMo('lightMo');
+  document.getElementById('cueEditorMo').classList.add('a');
+}
+
+function saveLightCue() {
+  const s = gs(); if (!s) return;
+  const number = document.getElementById('cueNum').value.trim();
+  if (!number) { t('请输入Cue编号'); return; }
+  const type = document.getElementById('cueType').value;
+  const desc = document.getElementById('cueDesc').value.trim();
+  const sceneKey = document.getElementById('cueScene').value;
+  const timing = document.getElementById('cueTiming').value;
+  const operator = document.getElementById('cueOperator').value.trim();
+  const fade = document.getElementById('cueFade').value.trim();
+  const note = document.getElementById('cueNote').value.trim();
+  // Generate scene label
+  let sceneLabel = '';
+  try {
+    const [ai, si] = sceneKey.split('-').map(Number);
+    if (s.acts[ai] && s.acts[ai].scenes[si]) {
+      sceneLabel = `${s.acts[ai].name} → ${s.acts[ai].scenes[si].name}`;
+    }
+  } catch(e) {}
+  const timingLabels = { scene_start: '场景开始', song_start: '歌曲开始', on_line: '指定台词', after_line: '台词之后' };
+  const cueData = { number, type, desc, sceneKey, sceneLabel, timing, timingLabel: timingLabels[timing] || timing, operator, fade, note, seq: (s.lightingCues||[]).length };
+  if (!s.lightingCues) s.lightingCues = [];
+  if (editingCueIdx >= 0) {
+    // Preserve seq
+    cueData.seq = s.lightingCues[editingCueIdx].seq;
+    s.lightingCues[editingCueIdx] = cueData;
+  } else {
+    s.lightingCues.push(cueData);
+  }
+  save();
+  closeMo('cueEditorMo');
+  document.getElementById('lightMo').classList.add('a');
+  renderLightCues();
+  t('已保存Cue');
+}
+
+function delLightCue(idx) {
+  if (!confirm('删除此Cue？')) return;
+  gs().lightingCues.splice(idx, 1);
+  save(); renderLightCues();
+}
+
+// ====================================================================
+//  MODULE: PROP MANAGER
+// ====================================================================
+let editingPropIdx = -1;
+
+function showPropManager() {
+  const s = gs(); if (!s) return;
+  if (!s.props) s.props = [];
+  // Populate scene filter
+  const sel = document.getElementById('propSceneFilter');
+  const val = sel.value;
+  sel.innerHTML = '<option value="">全部场景</option>';
+  s.acts.forEach((act, ai) => act.scenes.forEach((sc, si) => {
+    const key = `${ai}-${si}`;
+    sel.innerHTML += `<option value="${key}">${esc(act.name)} → ${esc(sc.name)}</option>`;
+  }));
+  sel.value = val || '';
+  document.getElementById('propMo').classList.add('a');
+  renderProps();
+}
+
+function renderProps() {
+  const s = gs(); const props = s.props || [];
+  const sceneFilter = document.getElementById('propSceneFilter').value;
+  const statusFilter = document.getElementById('propStatusFilter').value;
+  let filtered = props;
+  if (sceneFilter) {
+    filtered = filtered.filter(p => (p.scenes||[]).includes(sceneFilter));
+  }
+  if (statusFilter) {
+    filtered = filtered.filter(p => p.status === statusFilter);
+  }
+  const list = document.getElementById('propList');
+  if (!filtered.length) {
+    list.innerHTML = '<div class="tm-empty">还没有道具，点「＋ 添加道具」开始</div>';
+    return;
+  }
+  let html = '<table class="tm-tbl"><tr><th>道具</th><th>类别</th><th>存放位置</th><th>出现场景</th><th>负责人</th><th>状态</th><th></th></tr>';
+  filtered.forEach((p, i) => {
+    const origIdx = props.indexOf(p);
+    const catTag = p.category === 'hand_prop' ? '<span class="tag tag-prop-hand">手持</span>' :
+      p.category === 'furniture' ? '<span class="tag tag-prop-furn">家具</span>' :
+      p.category === 'costume_addon' ? '<span class="tag tag-prop-cost">服饰</span>' :
+      '<span class="tag" style="background:#333;color:#999;">其他</span>';
+    const statusTag = p.status === 'ready' ? '<span class="tag tag-status-ready">就绪</span>' :
+      p.status === 'needs_acquire' ? '<span class="tag tag-status-need">需借用</span>' :
+      p.status === 'needs_repair' ? '<span class="tag tag-status-repair">需修理</span>' :
+      '<span class="tag tag-status-missing">丢失</span>';
+    // Show scene labels
+    const sceneLabels = (p.scenes||[]).map(sk => {
+      try {
+        const [ai, si] = sk.split('-').map(Number);
+        if (s.acts[ai] && s.acts[ai].scenes[si]) return s.acts[ai].name + '→' + s.acts[ai].scenes[si].name;
+      } catch(e) {}
+      return sk;
+    }).join(', ');
+    html += `<tr>
+      <td><strong style="color:#fff;">${esc(p.name||'')}</strong></td>
+      <td>${catTag}</td>
+      <td style="color:#888;font-size:11px;">${esc(p.location||'')}</td>
+      <td style="color:#666;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(sceneLabels)}">${esc(sceneLabels)}</td>
+      <td style="color:#fdba74;">${esc(p.handler||'')}</td>
+      <td>${statusTag}</td>
+      <td><button class="tm-btn-sm" onclick="editProp(${origIdx})">✏️</button> <button class="tm-btn-sm" onclick="delProp(${origIdx})">🗑</button></td>
+    </tr>`;
+  });
+  html += '</table>';
+  list.innerHTML = html;
+}
+
+function addProp() {
+  editingPropIdx = -1;
+  document.getElementById('propEditorTitle').textContent = '➕ 添加道具';
+  document.getElementById('propName').value = '';
+  document.getElementById('propCategory').value = 'hand_prop';
+  document.getElementById('propDesc').value = '';
+  document.getElementById('propLoc').value = '';
+  document.getElementById('propHandler').value = '';
+  document.getElementById('propStatus').value = 'ready';
+  document.getElementById('propScenes').value = '';
+  document.getElementById('propSceneNote').value = '';
+  closeMo('propMo');
+  document.getElementById('propEditorMo').classList.add('a');
+}
+
+function editProp(idx) {
+  const s = gs(); const p = s.props[idx];
+  if (!p) return;
+  editingPropIdx = idx;
+  document.getElementById('propEditorTitle').textContent = '✏️ 编辑道具';
+  document.getElementById('propName').value = p.name || '';
+  document.getElementById('propCategory').value = p.category || 'hand_prop';
+  document.getElementById('propDesc').value = p.desc || '';
+  document.getElementById('propLoc').value = p.location || '';
+  document.getElementById('propHandler').value = p.handler || '';
+  document.getElementById('propStatus').value = p.status || 'ready';
+  document.getElementById('propScenes').value = (p.scenes||[]).join(', ');
+  document.getElementById('propSceneNote').value = p.sceneNote || '';
+  closeMo('propMo');
+  document.getElementById('propEditorMo').classList.add('a');
+}
+
+function saveProp() {
+  const s = gs(); if (!s) return;
+  const name = document.getElementById('propName').value.trim();
+  if (!name) { t('请输入道具名'); return; }
+  const category = document.getElementById('propCategory').value;
+  const desc = document.getElementById('propDesc').value.trim();
+  const location = document.getElementById('propLoc').value.trim();
+  const handler = document.getElementById('propHandler').value.trim();
+  const status = document.getElementById('propStatus').value;
+  const scenesRaw = document.getElementById('propScenes').value.trim();
+  const sceneNote = document.getElementById('propSceneNote').value.trim();
+  // Resolve scene keys from scene names
+  const sceneKeys = [];
+  if (scenesRaw) {
+    const names = scenesRaw.split(',').map(n => n.trim().toLowerCase());
+    s.acts.forEach((act, ai) => act.scenes.forEach((sc, si) => {
+      const full = (act.name + ' → ' + sc.name).toLowerCase();
+      if (names.some(n => full.includes(n) || sc.name.toLowerCase().includes(n))) {
+        sceneKeys.push(`${ai}-${si}`);
+      }
+    }));
+  }
+  const propData = { name, category, desc, location, handler, status, scenes: sceneKeys, sceneNote };
+  if (!s.props) s.props = [];
+  if (editingPropIdx >= 0) {
+    s.props[editingPropIdx] = propData;
+  } else {
+    s.props.push(propData);
+  }
+  save();
+  closeMo('propEditorMo');
+  document.getElementById('propMo').classList.add('a');
+  renderProps();
+  t('已保存道具');
+}
+
+function delProp(idx) {
+  if (!confirm('删除此道具？')) return;
+  gs().props.splice(idx, 1);
+  save(); renderProps();
+}
 </script>
 </body>
 </html>
