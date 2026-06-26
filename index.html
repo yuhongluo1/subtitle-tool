@@ -436,6 +436,7 @@
       <button class="btn-g btn-sm" onclick="showMicManager()" style="padding:5px 12px;">🎤 麦克风</button>
       <button class="btn-g btn-sm" onclick="showLightingCues()" style="padding:5px 12px;">💡 灯光Cue</button>
       <button class="btn-g btn-sm" onclick="showPropManager()" style="padding:5px 12px;">📦 道具</button>
+      <button class="btn-g btn-sm" onclick="showAudioManager()" style="padding:5px 12px;">🔊 音频</button>
     </div>
     <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:#111;border-radius:8px;margin-bottom:3px;">
       <span style="color:#555;font-size:10px;min-width:42px;">📝 剧本</span>
@@ -475,6 +476,10 @@
       <div class="rh-card">
         <h4>📦 道具上下场</h4>
         <div id="rhPropPanel">暂无道具</div>
+      </div>
+      <div class="rh-card">
+        <h4>🔊 音频Cue</h4>
+        <div id="rhAudioPanel">暂无音频</div>
       </div>
     </div>
   </div>
@@ -763,6 +768,23 @@
       <button class="btn-g" onclick="closeMo('lineEditorMo')">取消</button>
       <button class="btn-p" onclick="saveLineEditor()">💾 保存</button>
     </div>
+  </div>
+</div>
+
+<!-- AUDIO MANAGER MODAL -->
+<div class="mo" id="audioMo">
+  <div class="md" style="max-width:700px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <h3 style="margin:0;">🔊 音频管理</h3>
+      <span style="color:#666;font-size:12px;">上传伴奏音轨，绑定到场景</span>
+      <div style="flex:1;"></div>
+      <div style="display:flex;gap:4px;">
+        <button class="btn-sm" id="audioViewTracks" onclick="setAudioView('tracks')" style="background:#2563eb;color:#fff;">📋 音轨</button>
+        <button class="btn-sm" id="audioViewCues" onclick="setAudioView('cues')" style="background:#333;color:#ccc;">🎯 Cue</button>
+      </div>
+      <button class="btn-g btn-sm" onclick="closeMo('audioMo')">✕ 关闭</button>
+    </div>
+    <div id="audioContent" style="max-height:60vh;overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -2903,7 +2925,7 @@ function renderRehearsal() {
   const curEl = document.querySelector('#rh-script .rh-line.cur');
   if (curEl) curEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
   document.getElementById('rhSceneInfo').textContent = `${line._act} · ${line._scene} (${line._type==='song'?'🎵':'🎭'})`;
-  updateRhMic(line); updateRhLights(line); updateRhProps(line);
+  updateRhMic(line); updateRhLights(line); updateRhProps(line); updateRhAudio(line);
 }
 
 function rhNext() { const all = flatLines(); if (rhIdx < all.length-1) { rhIdx++; renderRehearsal(); } }
@@ -2948,6 +2970,26 @@ function updateRhProps(line) {
     }
   });
   document.getElementById('rhPropPanel').innerHTML = h;
+}
+
+function updateRhAudio(line) {
+  const s = gs(); let sk = '';
+  s.acts.forEach((act, ai) => act.scenes.forEach((sc, si) => { if (act.name===line._act && sc.name===line._scene) sk=`${ai}-${si}`; }));
+  const cues = (s.audioCues||[]).filter(c => c.sceneKey===sk);
+  if (!cues.length) { document.getElementById('rhAudioPanel').innerHTML = '<div style="color:#444;font-size:11px;">暂无音频</div>'; return; }
+  const tracks = s.audioTracks || [];
+  let h = '';
+  cues.forEach(c => {
+    const trk = tracks.find(t => t.id === c.trackId);
+    const off = c.offset ? Math.floor(c.offset/60)+':'+String(Math.floor(c.offset%60)).padStart(2,'0') : '0:00';
+    h += `<div class="item">
+      <span style="color:#6ee7b7;">▶</span>
+      <span class="lbl">${esc(trk?.name||'?')}</span>
+      <span class="val">${off}</span>
+      <button class="tm-btn-sm" onclick="playAudioTrack('${c.trackId}')" style="margin-left:auto;">▶</button>
+    </div>`;
+  });
+  document.getElementById('rhAudioPanel').innerHTML = h;
 }
 
 // ====================================================================
@@ -3098,6 +3140,12 @@ function exportCueScript(type) {
         const p = propByScene[sk]||[];
         if (p.length) notes.push(`📦 ${p.map(({prop:p2,cue}) => `${p2.name}${cue.onTime?' ↑'+cue.onTime:''}${cue.offTime?' ↓'+cue.offTime:''}`).join(' / ')}`);
       }
+      // Audio cues (always show in exports when data exists)
+      const aCues = (s.audioCues||[]).filter(c => c.sceneKey === sk);
+      if (aCues.length && type !== 'mic' && type !== 'light' && type !== 'prop') {
+        const trks = s.audioTracks||[];
+        notes.push(`🔊 ${aCues.map(c => {const t=trks.find(x=>x.id===c.trackId); const off=c.offset?Math.floor(c.offset/60)+':'+String(Math.floor(c.offset%60)).padStart(2,'0'):'0:00'; return (t?t.name+' ['+off+']':c.trackId);}).join(' / ')}`);
+      }
       if (notes.length) body += `<div class="cue">${notes.join('<br>')}</div>`;
       // Lines
       (sc.lines||[]).forEach(l => {
@@ -3142,6 +3190,158 @@ function exportCueScript(type) {
   w.document.write(html);
   w.document.close();
 }
+
+// ====================================================================
+//  AUDIO MANAGER (IndexedDB-backed audio playback)
+// ====================================================================
+let audioView = 'tracks';
+let audioDbReady = null;
+
+function openAudioDb() {
+  if (audioDbReady) return audioDbReady;
+  audioDbReady = new Promise((resolve, reject) => {
+    const req = indexedDB.open('hermesAudio', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('files', { keyPath: 'id' });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return audioDbReady;
+}
+
+function showAudioManager() {
+  const s = gs(); if (!s) return;
+  if (!s.audioTracks) s.audioTracks = [];
+  if (!s.audioCues) s.audioCues = [];
+  audioView = 'tracks';
+  document.getElementById('audioViewTracks').style.background = '#2563eb';
+  document.getElementById('audioViewTracks').style.color = '#fff';
+  document.getElementById('audioViewCues').style.background = '#333';
+  document.getElementById('audioViewCues').style.color = '#ccc';
+  document.getElementById('audioMo').classList.add('a');
+  renderAudioView();
+}
+
+function setAudioView(view) {
+  audioView = view;
+  const isT = view === 'tracks', isC = view === 'cues';
+  document.getElementById('audioViewTracks').style.background = isT ? '#2563eb' : '#333';
+  document.getElementById('audioViewTracks').style.color = isT ? '#fff' : '#ccc';
+  document.getElementById('audioViewCues').style.background = isC ? '#2563eb' : '#333';
+  document.getElementById('audioViewCues').style.color = isC ? '#fff' : '#ccc';
+  renderAudioView();
+}
+
+function renderAudioView() {
+  if (audioView === 'tracks') renderAudioTracks();
+  else renderAudioCues();
+}
+
+function renderAudioTracks() {
+  const s = gs(); const tracks = s.audioTracks || [];
+  let html = '<div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">';
+  html += '<span style="color:#888;font-size:11px;">伴奏文件（存储在浏览器中）</span>';
+  html += '<button class="btn-s btn-sm" onclick="uploadAudio()">＋ 上传</button>';
+  html += `<span style="color:#555;font-size:11px;flex:1;text-align:right;">${tracks.length} 个音轨</span></div>`;
+  if (!tracks.length) {
+    html += '<div class="tm-empty">还没有音轨，上传伴奏MP3文件</div>';
+    document.getElementById('audioContent').innerHTML = html; return;
+  }
+  html += '<table class="tm-tbl"><tr><th>音轨</th><th>时长</th><th>播放</th><th>操作</th></tr>';
+  tracks.forEach((t, i) => {
+    const dur = t.duration ? Math.floor(t.duration/60)+':'+String(Math.floor(t.duration%60)).padStart(2,'0') : '?';
+    html += `<tr><td><strong style="color:#fff;">${esc(t.name||'未命名')}</strong></td><td style="color:#888;font-size:11px;">${dur}</td>
+      <td><button class="tm-btn-sm" onclick="playAudioTrack('${t.id}')">▶</button><button class="tm-btn-sm" onclick="stopAudio()" style="margin-left:2px;">⏹</button></td>
+      <td><button class="tm-btn-sm" onclick="addAudioCueFromTrack(${i})">🎯 绑定</button><button class="tm-btn-sm" onclick="delAudioTrack(${i})">🗑</button></td></tr>`;
+  });
+  html += '</table>';
+  document.getElementById('audioContent').innerHTML = html;
+}
+
+function renderAudioCues() {
+  const s = gs(); const cues = s.audioCues || []; const tracks = s.audioTracks || [];
+  let html = '<div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">';
+  html += '<span style="color:#888;font-size:11px;">音频Cue — 在排演模式和导出中显示</span>';
+  html += `<span style="color:#555;font-size:11px;flex:1;text-align:right;">${cues.length} 个Cue</span></div>`;
+  if (!cues.length) {
+    html += '<div class="tm-empty">先在音轨tab上传文件，点「🎯 绑定」创建Cue</div>';
+    document.getElementById('audioContent').innerHTML = html; return;
+  }
+  html += '<table class="tm-tbl"><tr><th>触发</th><th>音轨</th><th>场景</th><th>偏移</th><th>备注</th><th></th></tr>';
+  cues.forEach((c, i) => {
+    const trk = tracks.find(t => t.id === c.trackId);
+    let scLabel = c.sceneKey || '';
+    try { const [ai,si] = (c.sceneKey||'').split('-').map(Number); if(s.acts[ai]&&s.acts[ai].scenes[si]) scLabel = s.acts[ai].name+'→'+s.acts[ai].scenes[si].name; } catch(e){}
+    const off = c.offset ? Math.floor(c.offset/60)+':'+String(Math.floor(c.offset%60)).padStart(2,'0') : '0:00';
+    html += `<tr><td><span class="tag tag-mic">${c.timing==='scene_start'?'场景开始':'手动'}</span></td>
+      <td style="color:#6af;">${esc(trk?.name||c.trackId)}</td><td style="color:#888;font-size:11px;">${esc(scLabel)}</td>
+      <td style="color:#aaa;font-size:11px;">${off}</td><td style="color:#666;font-size:11px;">${esc(c.note||'')}</td>
+      <td><button class="tm-btn-sm" onclick="editAudioCue(${i})">✏️</button><button class="tm-btn-sm" onclick="delAudioCue(${i})">🗑</button></td></tr>`;
+  });
+  html += '</table>';
+  document.getElementById('audioContent').innerHTML = html;
+}
+
+let _audioUrls = {}; let _currentAudio = null;
+
+async function uploadAudio() {
+  const s = gs(); if (!s) return;
+  const input = document.createElement('input'); input.type = 'file'; input.accept = 'audio/*';
+  input.onchange = async () => {
+    const file = input.files[0]; if (!file) return;
+    const id = 'A'+Date.now();
+    try { const db = await openAudioDb(); const tx = db.transaction('files','readwrite'); tx.objectStore('files').put({id,blob:file}); await new Promise((r,j)=>{tx.oncomplete=r;tx.onerror=j;}); } catch(e){ t('存储失败'); return; }
+    _audioUrls[id] = URL.createObjectURL(file);
+    const audio = new Audio(); audio.src = _audioUrls[id];
+    await new Promise(r => { audio.onloadedmetadata = r; setTimeout(r,3000); });
+    const duration = audio.duration || 0;
+    if (!s.audioTracks) s.audioTracks = [];
+    s.audioTracks.push({ id, name: file.name.replace(/\.[^.]+$/,''), fileId: id, duration });
+    save(); renderAudioView(); t('已上传');
+  };
+  input.click();
+}
+
+async function getAudioUrl(trackId) {
+  if (_audioUrls[trackId]) return _audioUrls[trackId];
+  try { const db = await openAudioDb(); const tx = db.transaction('files','readonly');
+    const req = tx.objectStore('files').get(trackId);
+    const r = await new Promise((res,rej)=>{req.onsuccess=()=>res(req.result);req.onerror=rej;});
+    if (r?.blob) { _audioUrls[trackId] = URL.createObjectURL(r.blob); return _audioUrls[trackId]; }
+  } catch(e){} return null;
+}
+
+function playAudioTrack(trackId) {
+  stopAudio();
+  getAudioUrl(trackId).then(url => { if (!url) { t('文件未找到'); return; }
+    _currentAudio = new Audio(url); _currentAudio.play().catch(()=>t('播放失败')); t('▶ 播放中'); });
+}
+function stopAudio() { if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; } }
+
+async function delAudioTrack(idx) {
+  if (!confirm('删除？')) return; const s=gs(); const t=s.audioTracks[idx]; if(!t) return;
+  try{const db=await openAudioDb();const tx=db.transaction('files','readwrite');tx.objectStore('files').delete(t.id);}catch(e){}
+  if(_audioUrls[t.id]){URL.revokeObjectURL(_audioUrls[t.id]);delete _audioUrls[t.id];}
+  s.audioCues=(s.audioCues||[]).filter(c=>c.trackId!==t.id);
+  s.audioTracks.splice(idx,1); save(); renderAudioView();
+}
+
+function addAudioCueFromTrack(trackIdx) {
+  const s=gs(); const t=s.audioTracks[trackIdx]; if(!t) return;
+  const opts=[];
+  s.acts.forEach((act,ai)=>act.scenes.forEach((sc,si)=>opts.push({key:`${ai}-${si}`,label:`${act.name} → ${sc.name}`})));
+  if(!opts.length){t('无场景');return;}
+  const names=opts.map((o,i)=>`${i+1}. ${o.label}`).join('\n');
+  const pick=prompt(`绑定到哪个场景？\n${names}`); if(!pick) return;
+  const idx=parseInt(pick)-1; if(idx<0||idx>=opts.length) return;
+  const offset=prompt('偏移秒数 (如 0:00 从头，0:30 从30秒)', '0:00');
+  let secs=0;
+  if(offset){const p=offset.split(':');if(p.length===2)secs=parseInt(p[0])*60+parseInt(p[1]);else secs=parseInt(offset)||0;}
+  if(!s.audioCues)s.audioCues=[];
+  s.audioCues.push({id:'AC'+Date.now(),trackId:t.id,sceneKey:opts[idx].key,timing:'scene_start',offset:secs,note:''});
+  save(); setAudioView('cues'); t('已绑定Cue');
+}
+function editAudioCue(idx){const s=gs();const c=s.audioCues[idx];if(!c)return;const n=prompt('备注：',c.note||'');if(n===null)return;c.note=n;save();renderAudioView();}
+function delAudioCue(idx){if(!confirm('删除？'))return;gs().audioCues.splice(idx,1);save();renderAudioView();}
 
 // ====================================================================
 //  MODULE: PROP MANAGER
