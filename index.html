@@ -447,8 +447,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:#111;border-radius:8px;">
       <span style="color:#555;font-size:10px;min-width:42px;">💾 数据</span>
-      <button class="btn-g btn-sm" onclick="exportShow()" style="padding:5px 12px;">📤 导出</button>
-      <button class="btn-g btn-sm" onclick="showExportCue()" style="padding:5px 12px;">📋 导出Cue</button>
+      <button class="btn-p btn-sm" onclick="showExportAll()" style="padding:5px 12px;">📤 导出</button>
       <button class="btn-d btn-sm" onclick="delShow()" style="padding:5px 12px;">🗑 删除</button>
     </div>
   </div>
@@ -562,7 +561,6 @@
         <button class="btn-sm" id="micViewAssign" onclick="setMicView('assign')" style="background:#333;color:#ccc;">🎭 按场景</button>
         <button class="btn-sm" id="micViewFlow" onclick="setMicView('flow')" style="background:#333;color:#ccc;">🔄 流转</button>
       </div>
-      <button class="btn-g btn-sm" onclick="exportMic()">🖨 打印</button>
       <button class="btn-g btn-sm" onclick="closeMo('micMo')">✕ 关闭</button>
     </div>
     <div id="micContentView"></div>
@@ -577,7 +575,6 @@
       <span style="color:#666;font-size:12px;">按演出顺序排列的灯光提示</span>
       <div style="flex:1;"></div>
       <button class="btn-s btn-sm" onclick="addLightCue()">＋ 添加Cue</button>
-      <button class="btn-g btn-sm" onclick="exportLights()">🖨 打印</button>
       <button class="btn-g btn-sm" onclick="closeMo('lightMo')">✕ 关闭</button>
     </div>
     <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">
@@ -641,7 +638,6 @@
         <button class="btn-sm" id="propViewList" onclick="setPropView('list')" style="background:#2563eb;color:#fff;">📋 列表</button>
         <button class="btn-sm" id="propViewCues" onclick="setPropView('cues')" style="background:#333;color:#ccc;">📍 道具Cue</button>
       </div>
-      <button class="btn-g btn-sm" onclick="exportProps()">🖨 打印</button>
       <button class="btn-s btn-sm" onclick="addProp()">＋ 添加道具</button>
       <button class="btn-g btn-sm" onclick="closeMo('propMo')">✕ 关闭</button>
     </div>
@@ -788,18 +784,24 @@
   </div>
 </div>
 
-<!-- EXPORT CUE MODAL -->
-<div class="mo" id="exportCueMo">
-  <div class="md" style="max-width:400px;">
-    <h3>📋 导出Cue剧本</h3>
-    <p style="color:#888;font-size:13px;margin-bottom:14px;">选择要导出到剧本中的内容：</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <button class="btn-p" onclick="doExportCue('all')" style="padding:16px;font-size:15px;font-weight:600;">📋 全部Cue</button>
-      <button class="btn-g" onclick="doExportCue('mic')" style="padding:16px;font-size:15px;">🎤 Mic分配</button>
-      <button class="btn-g" onclick="doExportCue('light')" style="padding:16px;font-size:15px;">💡 灯光Cue</button>
-      <button class="btn-g" onclick="doExportCue('prop')" style="padding:16px;font-size:15px;">📦 道具上下场</button>
+<!-- EXPORT ALL MODAL -->
+<div class="mo" id="exportAllMo">
+  <div class="md" style="max-width:500px;">
+    <h3>📤 导出</h3>
+    <p style="color:#888;font-size:13px;margin-bottom:14px;">选择要导出的内容：</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+      <button class="btn-p" onclick="doExportAll('data')" style="padding:14px;font-size:14px;font-weight:600;">💾 剧目数据</button>
+      <button class="btn-w" onclick="doExportAll('cue-all')" style="padding:14px;font-size:14px;font-weight:600;">📋 Cue剧本(总)</button>
+      <button class="btn-g" onclick="doExportAll('cue-mic')" style="padding:12px;font-size:13px;">🎤 Mic剧本</button>
+      <button class="btn-g" onclick="doExportAll('cue-light')" style="padding:12px;font-size:13px;">💡 灯光剧本</button>
+      <button class="btn-g" onclick="doExportAll('cue-prop')" style="padding:12px;font-size:13px;">📦 道具剧本</button>
+      <button class="btn-g" onclick="doExportAll('cue-audio')" style="padding:12px;font-size:13px;">🔊 音频剧本</button>
     </div>
-    <div class="fa"><button class="btn-g" onclick="closeMo('exportCueMo')">取消</button></div>
+    <div style="border-top:1px solid #1a1a1a;padding-top:12px;">
+      <p style="color:#555;font-size:12px;margin-bottom:8px;">也可以导出全部数据备份：</p>
+      <button class="btn-g" onclick="doExportAll('all-data')" style="width:100%;padding:10px;font-size:13px;">📦 导出所有剧目数据(JSON备份)</button>
+    </div>
+    <div class="fa" style="margin-top:8px;"><button class="btn-g" onclick="closeMo('exportAllMo')">取消</button></div>
   </div>
 </div>
 
@@ -3095,13 +3097,16 @@ function exportProps() {
   w.document.close();
 }
 
-function showExportCue() {
-  document.getElementById('exportCueMo').classList.add('a');
+function showExportAll() {
+  document.getElementById('exportAllMo').classList.add('a');
 }
 
-function doExportCue(type) {
-  closeMo('exportCueMo');
-  exportCueScript(type);
+function doExportAll(type) {
+  closeMo('exportAllMo');
+  if (type === 'data') { exportShow(); return; }
+  if (type === 'all-data') { exportAll(); return; }
+  const map = { 'cue-all':'all', 'cue-mic':'mic', 'cue-light':'light', 'cue-prop':'prop', 'cue-audio':'audio' };
+  exportCueScript(map[type] || 'all');
 }
 
 function exportCueScript(type) {
@@ -3114,9 +3119,10 @@ function exportCueScript(type) {
   const showMic = type === 'all' || type === 'mic';
   const showLight = type === 'all' || type === 'light';
   const showProp = type === 'all' || type === 'prop';
+  const showAudio = type === 'all' || type === 'audio';
 
-  const typeLabels = { all:'总cue', mic:'Mic', light:'灯光', prop:'道具' };
-  const typeIcons = { all:'📋', mic:'🎤', light:'💡', prop:'📦' };
+  const typeLabels = { all:'总cue', mic:'Mic', light:'灯光', prop:'道具', audio:'音频' };
+  const typeIcons = { all:'📋', mic:'🎤', light:'💡', prop:'📦', audio:'🔊' };
 
   let totalScenes = 0, totalLines = 0;
   let body = '';
@@ -3140,11 +3146,13 @@ function exportCueScript(type) {
         const p = propByScene[sk]||[];
         if (p.length) notes.push(`📦 ${p.map(({prop:p2,cue}) => `${p2.name}${cue.onTime?' ↑'+cue.onTime:''}${cue.offTime?' ↓'+cue.offTime:''}`).join(' / ')}`);
       }
-      // Audio cues (always show in exports when data exists)
-      const aCues = (s.audioCues||[]).filter(c => c.sceneKey === sk);
-      if (aCues.length && type !== 'mic' && type !== 'light' && type !== 'prop') {
-        const trks = s.audioTracks||[];
-        notes.push(`🔊 ${aCues.map(c => {const t=trks.find(x=>x.id===c.trackId); const off=c.offset?Math.floor(c.offset/60)+':'+String(Math.floor(c.offset%60)).padStart(2,'0'):'0:00'; return (t?t.name+' ['+off+']':c.trackId);}).join(' / ')}`);
+      // Audio cues
+      if (showAudio) {
+        const aCues = (s.audioCues||[]).filter(c => c.sceneKey === sk);
+        if (aCues.length) {
+          const trks = s.audioTracks||[];
+          notes.push(`🔊 ${aCues.map(c => {const t=trks.find(x=>x.id===c.trackId); const off=c.offset?Math.floor(c.offset/60)+':'+String(Math.floor(c.offset%60)).padStart(2,'0'):'0:00'; return (t?t.name+' ['+off+']':c.trackId);}).join(' / ')}`);
+        }
       }
       if (notes.length) body += `<div class="cue">${notes.join('<br>')}</div>`;
       // Lines
